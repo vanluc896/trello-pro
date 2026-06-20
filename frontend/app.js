@@ -45,6 +45,72 @@ function setMessage(elementId, text = "") {
   if (element) element.textContent = text;
 }
 
+function closeDialog(backdrop, value, resolve) {
+  backdrop.remove();
+  resolve(value);
+}
+
+function askDialog({ title, message, defaultValue = "", confirmText = "OK", danger = false, textInput = false }) {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement("div");
+    backdrop.className = "dialog-backdrop";
+
+    const dialog = document.createElement("section");
+    dialog.className = "dialog";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.tabIndex = -1;
+
+    const heading = document.createElement("h2");
+    heading.textContent = title;
+    const copy = document.createElement("p");
+    copy.textContent = message;
+    dialog.append(heading, copy);
+
+    let input = null;
+    if (textInput) {
+      input = document.createElement("input");
+      input.type = "text";
+      input.maxLength = 255;
+      input.value = defaultValue;
+      dialog.append(input);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "dialog-actions";
+    const cancel = actionButton("Hủy", "secondary", () => closeDialog(backdrop, null, resolve));
+    const confirm = actionButton(confirmText, danger ? "danger" : "", () => {
+      closeDialog(backdrop, textInput ? input.value.trim() : true, resolve);
+    });
+    actions.append(cancel, confirm);
+    dialog.append(actions);
+    backdrop.append(dialog);
+    document.body.append(backdrop);
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") closeDialog(backdrop, null, resolve);
+      if (event.key === "Enter" && textInput && document.activeElement === input) {
+        event.preventDefault();
+        closeDialog(backdrop, input.value.trim(), resolve);
+      }
+    };
+    backdrop.addEventListener("keydown", onKeyDown);
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop) closeDialog(backdrop, null, resolve);
+    });
+    (input || confirm).focus();
+    if (input) input.select();
+  });
+}
+
+function askText(title, message, defaultValue = "") {
+  return askDialog({ title, message, defaultValue, confirmText: "Lưu", textInput: true });
+}
+
+function askConfirm(title, message, confirmText = "Xóa") {
+  return askDialog({ title, message, confirmText, danger: true });
+}
+
 function firebaseError(error) {
   const messages = {
     "auth/email-already-in-use": "Email này đã được đăng ký.",
@@ -148,11 +214,13 @@ async function logout() {
 }
 
 function showBoardsView() {
+  document.getElementById("loading-view")?.classList.add("hidden");
   document.getElementById("auth-view")?.classList.add("hidden");
   document.getElementById("boards-view")?.classList.remove("hidden");
 }
 
 function showAuthView() {
+  document.getElementById("loading-view")?.classList.add("hidden");
   document.getElementById("auth-view")?.classList.remove("hidden");
   document.getElementById("boards-view")?.classList.add("hidden");
 }
@@ -231,17 +299,17 @@ async function createBoard(event) {
 }
 
 async function renameBoard(board = currentBoard) {
-  const title = prompt("Tên mới của board:", board.title);
-  if (!title?.trim()) return;
+  const title = await askText("Đổi tên board", "Nhập tên mới cho board này.", board.title);
+  if (!title) return;
   try {
-    await set(ref(database, `boards/${board.id}/title`), title.trim());
+    await set(ref(database, `boards/${board.id}/title`), title);
   } catch (error) {
     setMessage(currentBoard ? "board-message" : "boards-message", firebaseError(error));
   }
 }
 
 async function deleteBoard(boardId, board = currentBoard) {
-  if (!confirm("Xóa board này và toàn bộ cột/card bên trong?")) return;
+  if (!await askConfirm("Xóa board", "Xóa board này và toàn bộ cột/card bên trong?")) return;
   try {
     const changes = {
       [`boards/${boardId}`]: null,
@@ -331,7 +399,7 @@ async function shareBoard(event) {
 }
 
 async function removeMember(uid) {
-  if (!confirm("Gỡ thành viên này khỏi board?")) return;
+  if (!await askConfirm("Gỡ thành viên", "Gỡ thành viên này khỏi board?", "Gỡ")) return;
   try {
     await update(ref(database), {
       [`boards/${currentBoard.id}/members/${uid}`]: null,
@@ -415,15 +483,15 @@ async function createList(event) {
 }
 
 async function editList(list) {
-  const title = prompt("Tên mới của cột:", list.title);
-  if (!title?.trim()) return;
-  try { await set(ref(database, `lists/${currentBoardId}/${list.id}/title`), title.trim()); }
+  const title = await askText("Đổi tên cột", "Nhập tên mới cho cột này.", list.title);
+  if (!title) return;
+  try { await set(ref(database, `lists/${currentBoardId}/${list.id}/title`), title); }
   catch (error) { setMessage("board-message", firebaseError(error)); }
 }
 
 async function deleteList(listId) {
   if (boardLists.length <= 1) return setMessage("board-message", "Board phải có ít nhất một cột.");
-  if (!confirm("Xóa cột này và toàn bộ card bên trong?")) return;
+  if (!await askConfirm("Xóa cột", "Xóa cột này và toàn bộ card bên trong?")) return;
   const changes = { [`lists/${currentBoardId}/${listId}`]: null };
   boardCards.filter((card) => card.listId === listId).forEach((card) => {
     changes[`cards/${currentBoardId}/${card.id}`] = null;
@@ -447,14 +515,14 @@ async function createCard(event, listId) {
 }
 
 async function editCard(card) {
-  const title = prompt("Nội dung mới của card:", card.title);
-  if (!title?.trim()) return;
-  try { await set(ref(database, `cards/${currentBoardId}/${card.id}/title`), title.trim()); }
+  const title = await askText("Sửa card", "Nhập nội dung mới cho card này.", card.title);
+  if (!title) return;
+  try { await set(ref(database, `cards/${currentBoardId}/${card.id}/title`), title); }
   catch (error) { setMessage("board-message", firebaseError(error)); }
 }
 
 async function deleteCard(cardId) {
-  if (!confirm("Xóa card này?")) return;
+  if (!await askConfirm("Xóa card", "Xóa card này?")) return;
   try { await remove(ref(database, `cards/${currentBoardId}/${cardId}`)); }
   catch (error) { setMessage("board-message", firebaseError(error)); }
 }

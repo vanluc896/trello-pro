@@ -65,6 +65,20 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .hidden { display: none !important; }
 
+.loading-view {
+  display: grid;
+  min-height: min(520px, calc(100vh - 92px));
+  place-items: center;
+  align-content: center;
+  gap: 18px;
+  color: var(--muted);
+}
+
+.loading-view p {
+  margin: 0;
+  font-size: 14px;
+}
+
 .brand {
   display: inline-flex;
   align-items: center;
@@ -223,6 +237,48 @@ button:disabled { cursor: wait; opacity: .62; }
 .text-button:hover { transform: none; box-shadow: none; text-decoration: underline; }
 .inline-form { grid-template-columns: minmax(0, 1fr) auto; margin-bottom: 10px; }
 .message { min-height: 23px; margin: 9px 0 0; color: #c62f43; font-size: 13px; }
+
+.dialog-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(15 23 42 / 38%);
+  backdrop-filter: blur(8px);
+}
+
+.dialog {
+  width: min(420px, 100%);
+  padding: 22px;
+  border: 1px solid rgb(255 255 255 / 78%);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--shadow-md);
+}
+
+.dialog h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  letter-spacing: 0;
+}
+
+.dialog p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.dialog input {
+  margin-bottom: 16px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 
 /* Dashboard */
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
