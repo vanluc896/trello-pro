@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Board · Trello Pro</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container board-page">
+    <header class="page-header">
+      <div>
+        <a href="index.html" class="back-link">← Các bảng</a>
+        <h1 id="current-board-title">Board</h1>
+      </div>
+      <div class="header-actions">
+        <button id="share-toggle" class="secondary hidden" type="button">Chia sẻ</button>
+        <button id="edit-board-button" class="secondary hidden" type="button">Đổi tên</button>
+        <button id="delete-board-button" class="danger hidden" type="button">Xóa board</button>
+        <button id="logout-button" class="secondary" type="button">Đăng xuất</button>
+      </div>
+    </header>
+
+    <section id="share-panel" class="panel share-panel hidden">
+      <h2>Thành viên</h2>
+      <form id="share-form" class="inline-form">
+        <input name="email" type="email" placeholder="Email tài khoản muốn mời" required>
+        <button type="submit">Mời</button>
+      </form>
+      <div id="members" class="member-list"></div>
+    </section>
+
+    <form id="list-form" class="inline-form panel compact-panel">
+      <input name="title" maxlength="255" placeholder="Tên cột mới, ví dụ: Đang làm" required>
+      <button type="submit">Thêm cột</button>
+    </form>
+
+    <p id="board-message" class="message" role="status"></p>
+    <section id="board" class="lists-board" aria-label="Các cột công việc"></section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
