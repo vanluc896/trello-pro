@@ -46,7 +46,7 @@
         ".read": "auth != null && (root.child('boards').child($boardId).child('ownerId').val() === auth.uid || root.child('boards').child($boardId).child('members').child(auth.uid).exists())",
         ".write": "auth != null && (root.child('boards').child($boardId).child('ownerId').val() === auth.uid || root.child('boards').child($boardId).child('members').child(auth.uid).exists())",
         "$cardId": {
-          ".validate": "!newData.exists() || (newData.hasChildren(['listId', 'title', 'position']) && newData.child('listId').isString() && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 255 && newData.child('position').isNumber() && (!newData.child('completed').exists() || newData.child('completed').isBoolean()))"
+          ".validate": "!newData.exists() || (newData.hasChildren(['listId', 'title', 'position']) && newData.child('listId').isString() && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 255 && newData.child('position').isNumber())"
         }
       }
     }
