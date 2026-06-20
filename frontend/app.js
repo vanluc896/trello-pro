@@ -6,11 +6,12 @@ let sortableInstances = [];
 
 async function apiFetch(path, options = {}) {
   const headers = new Headers(options.headers || {});
+  const isAuthRequest = path.startsWith("/auth/");
   headers.set("Content-Type", "application/json");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (token && !isAuthRequest) headers.set("Authorization", `Bearer ${token}`);
   const response = await fetch(`${API}${path}`, { ...options, headers });
   const data = await response.json().catch(() => ({}));
-  if (response.status === 401) {
+  if (response.status === 401 && !isAuthRequest) {
     logout();
     throw new Error("Phiên đăng nhập đã hết hạn.");
   }
