@@ -65,20 +65,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .hidden { display: none !important; }
 
-.loading-view {
-  display: grid;
-  min-height: min(520px, calc(100vh - 92px));
-  place-items: center;
-  align-content: center;
-  gap: 18px;
-  color: var(--muted);
-}
-
-.loading-view p {
-  margin: 0;
-  font-size: 14px;
-}
-
 .brand {
   display: inline-flex;
   align-items: center;

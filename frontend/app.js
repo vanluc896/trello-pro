@@ -214,13 +214,11 @@ async function logout() {
 }
 
 function showBoardsView() {
-  document.getElementById("loading-view")?.classList.add("hidden");
   document.getElementById("auth-view")?.classList.add("hidden");
   document.getElementById("boards-view")?.classList.remove("hidden");
 }
 
 function showAuthView() {
-  document.getElementById("loading-view")?.classList.add("hidden");
   document.getElementById("auth-view")?.classList.remove("hidden");
   document.getElementById("boards-view")?.classList.add("hidden");
 }
