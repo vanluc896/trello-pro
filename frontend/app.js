@@ -413,16 +413,27 @@ async function removeMember(uid) {
 function renderCard(card) {
   const element = document.createElement("article");
   element.className = "card";
+  element.classList.toggle("completed", Boolean(card.completed));
   element.dataset.id = card.id;
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.className = "card-check";
+  checkbox.checked = Boolean(card.completed);
+  checkbox.setAttribute("aria-label", `Đánh dấu ${card.title} là hoàn thành`);
+  checkbox.addEventListener("change", () => toggleCardDone(card.id, checkbox.checked));
+
   const title = document.createElement("span");
+  title.className = "card-title";
   title.textContent = card.title;
+
   const actions = document.createElement("div");
   actions.className = "card-actions";
   actions.append(
     actionButton("Sửa", "icon-button", () => editCard(card)),
     actionButton("Xóa", "icon-button danger-text", () => deleteCard(card.id))
   );
-  element.append(title, actions);
+  element.append(checkbox, title, actions);
   return element;
 }
 
@@ -508,10 +519,19 @@ async function createCard(event, listId) {
     await set(ref(database, `cards/${currentBoardId}/${cardId}`), {
       listId,
       title: form.title.value.trim(),
+      completed: false,
       position: boardCards.filter((card) => card.listId === listId).length
     });
     form.reset();
   } catch (error) { setMessage("board-message", firebaseError(error)); }
+}
+
+async function toggleCardDone(cardId, completed) {
+  try {
+    await set(ref(database, `cards/${currentBoardId}/${cardId}/completed`), completed);
+  } catch (error) {
+    setMessage("board-message", firebaseError(error));
+  }
 }
 
 async function editCard(card) {
@@ -543,7 +563,7 @@ function enableDrag() {
       animation: 180,
       direction: "vertical",
       draggable: ".card",
-      filter: "button",
+      filter: "button,input",
       onEnd: saveBoardOrder
     }));
   });

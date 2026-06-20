@@ -344,9 +344,20 @@ button:disabled { cursor: wait; opacity: .62; }
 .list-header h2 { flex: 1; overflow: hidden; margin: 0; color: #263049; font-size: 16px; text-overflow: ellipsis; }
 .list-header > div, .card-actions { display: flex; gap: 4px; }
 .cards { min-height: 40px; }
-.card { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 54px; margin: 8px 0; padding: 12px 13px; border: 1px solid #e2e6ed; border-left: 4px solid #7468ef; border-radius: 12px; background: #fff; box-shadow: 0 4px 11px rgb(44 55 83 / 6%); cursor: grab; overflow-wrap: anywhere; transition: transform .16s, box-shadow .16s, border-color .16s; }
+.card { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 54px; margin: 8px 0; padding: 12px 13px; border: 1px solid #e2e6ed; border-left: 4px solid #7468ef; border-radius: 12px; background: #fff; box-shadow: 0 4px 11px rgb(44 55 83 / 6%); cursor: grab; overflow-wrap: anywhere; transition: transform .16s, box-shadow .16s, border-color .16s, opacity .16s; }
 .card:hover { transform: translateY(-1px); border-color: #d4d8e5; box-shadow: 0 8px 18px rgb(44 55 83 / 10%); }
-.card > span { flex: 1; min-width: 0; }
+.card.completed { border-left-color: #22c55e; opacity: .72; }
+.card-title { flex: 1; min-width: 0; }
+.card.completed .card-title { color: var(--muted); text-decoration: line-through; }
+.card-check {
+  flex: 0 0 auto;
+  width: 19px;
+  min-height: 19px;
+  height: 19px;
+  margin: 0;
+  accent-color: #22c55e;
+  cursor: pointer;
+}
 .card-actions { flex: 0 0 auto; opacity: 0; transition: opacity .15s; }
 .card:hover .card-actions { opacity: 1; }
 .add-card-form { grid-template-columns: minmax(0, 1fr) auto; gap: 7px; margin-top: 10px; }
