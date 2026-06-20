@@ -1,0 +1,54 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "!newData.exists() || (newData.hasChildren(['email']) && newData.child('email').isString() && newData.child('email').val() === auth.token.email)"
+      }
+    },
+    "emailDirectory": {
+      "$emailKey": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((newData.child('uid').val() === auth.uid && newData.child('email').val() === auth.token.email) || (!newData.exists() && data.child('uid').val() === auth.uid))",
+        ".validate": "!newData.exists() || (newData.hasChildren(['uid', 'email']) && newData.child('uid').isString() && newData.child('email').isString())"
+      }
+    },
+    "boards": {
+      "$boardId": {
+        ".read": "auth != null && (data.child('ownerId').val() === auth.uid || data.child('members').child(auth.uid).exists())",
+        ".write": "auth != null && ((!data.exists() && newData.child('ownerId').val() === auth.uid) || data.child('ownerId').val() === auth.uid)",
+        ".validate": "!newData.exists() || (newData.hasChildren(['title', 'ownerId', 'ownerEmail', 'createdAt']) && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 255 && newData.child('ownerId').isString() && newData.child('ownerEmail').isString() && newData.child('createdAt').isNumber())"
+      }
+    },
+    "userBoards": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$boardId": {
+          ".write": "auth != null && (auth.uid === $uid || root.child('boards').child($boardId).child('ownerId').val() === auth.uid)",
+          ".validate": "!newData.exists() || (newData.hasChildren(['role', 'createdAt']) && (newData.child('role').val() === 'owner' || newData.child('role').val() === 'member') && newData.child('createdAt').isNumber())"
+        }
+      }
+    },
+    "lists": {
+      "$boardId": {
+        ".read": "auth != null && (root.child('boards').child($boardId).child('ownerId').val() === auth.uid || root.child('boards').child($boardId).child('members').child(auth.uid).exists())",
+        ".write": "auth != null && (root.child('boards').child($boardId).child('ownerId').val() === auth.uid || root.child('boards').child($boardId).child('members').child(auth.uid).exists())",
+        "$listId": {
+          ".validate": "!newData.exists() || (newData.hasChildren(['title', 'position']) && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 255 && newData.child('position').isNumber())"
+        }
+      }
+    },
+    "cards": {
+      "$boardId": {
+        ".read": "auth != null && (root.child('boards').child($boardId).child('ownerId').val() === auth.uid || root.child('boards').child($boardId).child('members').child(auth.uid).exists())",
+        ".write": "auth != null && (root.child('boards').child($boardId).child('ownerId').val() === auth.uid || root.child('boards').child($boardId).child('members').child(auth.uid).exists())",
+        "$cardId": {
+          ".validate": "!newData.exists() || (newData.hasChildren(['listId', 'title', 'position']) && newData.child('listId').isString() && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 255 && newData.child('position').isNumber())"
+        }
+      }
+    }
+  }
+}

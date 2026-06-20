@@ -3,5 +3,5 @@ node_modules/
 .env.*
 !.env.example
 npm-debug.log*
+firebase-debug.log*
 .DS_Store
-

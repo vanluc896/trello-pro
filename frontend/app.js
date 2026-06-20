@@ -1,78 +1,129 @@
-const API = "/api";
-let token = localStorage.getItem("token");
-let socket = null;
-let currentBoard = null;
-let sortableInstances = [];
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import {
+  get,
+  getDatabase,
+  onValue,
+  push,
+  ref,
+  remove,
+  set,
+  update
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
 
-async function apiFetch(path, options = {}) {
-  const headers = new Headers(options.headers || {});
-  const isAuthRequest = path.startsWith("/auth/");
-  headers.set("Content-Type", "application/json");
-  if (token && !isAuthRequest) headers.set("Authorization", `Bearer ${token}`);
-  const response = await fetch(`${API}${path}`, { ...options, headers });
-  const data = await response.json().catch(() => ({}));
-  if (response.status === 401 && !isAuthRequest) {
-    logout();
-    throw new Error("Phiên đăng nhập đã hết hạn.");
-  }
-  if (!response.ok) throw new Error(data.error || "Có lỗi xảy ra, vui lòng thử lại.");
-  return data;
-}
+const firebaseConfig = {
+  apiKey: "AIzaSyAunFqFXWVdD82R3-teYb_m_D21-ykM9o0",
+  authDomain: "trello-pro-896.firebaseapp.com",
+  databaseURL: "https://trello-pro-896-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "trello-pro-896",
+  storageBucket: "trello-pro-896.firebasestorage.app",
+  messagingSenderId: "1021949830954",
+  appId: "1:1021949830954:web:fdd37fc450da2b49dc2053"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const database = getDatabase(firebaseApp);
+
+let currentUser = null;
+let currentBoard = null;
+let currentBoardId = null;
+let boardLists = [];
+let boardCards = [];
+let sortableInstances = [];
+let unsubscribeBoards = null;
+let boardUnsubscribers = [];
 
 function setMessage(elementId, text = "") {
   const element = document.getElementById(elementId);
   if (element) element.textContent = text;
 }
 
-function logout() {
-  localStorage.removeItem("token");
-  token = null;
-  const authView = document.getElementById("auth-view");
-  if (authView) {
-    authView.classList.remove("hidden");
-    document.getElementById("boards-view")?.classList.add("hidden");
-  } else location.href = "index.html";
+function firebaseError(error) {
+  const messages = {
+    "auth/email-already-in-use": "Email này đã được đăng ký.",
+    "auth/invalid-email": "Email không hợp lệ.",
+    "auth/invalid-credential": "Email hoặc mật khẩu không đúng.",
+    "auth/missing-password": "Vui lòng nhập mật khẩu.",
+    "auth/weak-password": "Mật khẩu phải có ít nhất 6 ký tự.",
+    "auth/too-many-requests": "Bạn thử quá nhiều lần. Vui lòng chờ một lúc.",
+    "auth/network-request-failed": "Không thể kết nối Firebase. Hãy kiểm tra mạng."
+  };
+  return messages[error?.code] || error?.message || "Có lỗi xảy ra, vui lòng thử lại.";
+}
+
+function emailKey(email) {
+  const bytes = new TextEncoder().encode(email.trim().toLowerCase());
+  let binary = "";
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+function collection(snapshot) {
+  const value = snapshot.val() || {};
+  return Object.entries(value)
+    .map(([id, item]) => ({ id, ...item }))
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+}
+
+function actionButton(label, className, handler) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = className;
+  button.textContent = label;
+  button.addEventListener("click", handler);
+  return button;
 }
 
 async function login(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  const button = form.querySelector("button[type='submit']");
   setMessage("auth-message");
-  form.querySelector("button").disabled = true;
+  button.disabled = true;
   try {
-    const data = await apiFetch("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email: form.email.value.trim(), password: form.password.value })
-    });
-    token = data.token;
-    localStorage.setItem("token", token);
-    showBoardsView();
-    await loadBoards();
-  } catch (error) { setMessage("auth-message", error.message); }
-  finally { form.querySelector("button").disabled = false; }
+    await signInWithEmailAndPassword(auth, form.email.value.trim(), form.password.value);
+  } catch (error) {
+    setMessage("auth-message", firebaseError(error));
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function register(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  const email = form.email.value.trim().toLowerCase();
   setMessage("auth-message");
   if (form.password.value !== form.confirmPassword.value) {
     return setMessage("auth-message", "Mật khẩu nhập lại không khớp.");
   }
+
   const button = form.querySelector("button[type='submit']");
   button.disabled = true;
   try {
-    await apiFetch("/auth/register", {
-      method: "POST",
-      body: JSON.stringify({ email: form.email.value.trim(), password: form.password.value })
+    const credential = await createUserWithEmailAndPassword(auth, email, form.password.value);
+    const uid = credential.user.uid;
+    await update(ref(database), {
+      [`users/${uid}`]: { email },
+      [`emailDirectory/${emailKey(email)}`]: { uid, email }
     });
-    const email = form.email.value.trim();
+    await signOut(auth);
     form.reset();
     showLoginForm();
     document.getElementById("email").value = email;
     setMessage("auth-message", "Đăng ký thành công. Bạn có thể đăng nhập ngay.");
-  } catch (error) { setMessage("auth-message", error.message); }
-  finally { button.disabled = false; }
+  } catch (error) {
+    setMessage("auth-message", firebaseError(error));
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function showRegisterForm() {
@@ -91,97 +142,169 @@ function showLoginForm() {
   document.getElementById("email").focus();
 }
 
+async function logout() {
+  await signOut(auth);
+  if (!document.getElementById("auth-view")) location.href = "index.html";
+}
+
 function showBoardsView() {
   document.getElementById("auth-view")?.classList.add("hidden");
   document.getElementById("boards-view")?.classList.remove("hidden");
 }
 
-function actionButton(label, className, handler) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = className;
-  button.textContent = label;
-  button.addEventListener("click", handler);
-  return button;
+function showAuthView() {
+  document.getElementById("auth-view")?.classList.remove("hidden");
+  document.getElementById("boards-view")?.classList.add("hidden");
 }
 
-async function loadBoards() {
-  try {
-    const boards = await apiFetch("/board");
-    const container = document.getElementById("boards");
-    container.replaceChildren();
-    if (!boards.length) {
-      const empty = document.createElement("p");
-      empty.className = "empty-state";
-      empty.textContent = "Bạn chưa có board nào. Hãy tạo board đầu tiên nhé.";
-      return container.append(empty);
+function loadBoards() {
+  unsubscribeBoards?.();
+  unsubscribeBoards = onValue(ref(database, `userBoards/${currentUser.uid}`), async (snapshot) => {
+    const access = snapshot.val() || {};
+    const boardEntries = await Promise.all(Object.keys(access).map(async (id) => {
+      const boardSnapshot = await get(ref(database, `boards/${id}`));
+      return boardSnapshot.exists() ? { id, ...boardSnapshot.val(), role: access[id].role } : null;
+    }));
+    renderBoards(boardEntries.filter(Boolean).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
+  }, (error) => setMessage("boards-message", firebaseError(error)));
+}
+
+function renderBoards(boards) {
+  const container = document.getElementById("boards");
+  container.replaceChildren();
+  if (!boards.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "Bạn chưa có board nào. Hãy tạo board đầu tiên nhé.";
+    return container.append(empty);
+  }
+
+  boards.forEach((board) => {
+    const item = document.createElement("article");
+    item.className = "board-item";
+    const link = document.createElement("a");
+    link.className = "board-tile";
+    link.href = `board.html?id=${encodeURIComponent(board.id)}`;
+    link.textContent = board.title;
+    item.append(link);
+    if (board.role === "owner") {
+      const actions = document.createElement("div");
+      actions.className = "tile-actions";
+      actions.append(
+        actionButton("Sửa", "mini-button", () => renameBoard(board)),
+        actionButton("Xóa", "mini-button danger", () => deleteBoard(board.id, board))
+      );
+      item.append(actions);
+    } else {
+      const badge = document.createElement("span");
+      badge.className = "shared-badge";
+      badge.textContent = "Được chia sẻ";
+      item.append(badge);
     }
-    boards.forEach((board) => {
-      const item = document.createElement("article");
-      item.className = "board-item";
-      const link = document.createElement("a");
-      link.className = "board-tile";
-      link.href = `board.html?id=${encodeURIComponent(board.id)}`;
-      link.textContent = board.title;
-      item.append(link);
-      if (board.role === "owner") {
-        const actions = document.createElement("div");
-        actions.className = "tile-actions";
-        actions.append(
-          actionButton("Sửa", "mini-button", () => renameBoard(board)),
-          actionButton("Xóa", "mini-button danger", () => deleteBoard(board.id))
-        );
-        item.append(actions);
-      } else {
-        const badge = document.createElement("span");
-        badge.className = "shared-badge";
-        badge.textContent = "Được chia sẻ";
-        item.append(badge);
-      }
-      container.append(item);
-    });
-  } catch (error) { setMessage("boards-message", error.message); }
+    container.append(item);
+  });
 }
 
 async function createBoard(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  const title = form.title.value.trim();
+  if (!title) return;
   try {
-    await apiFetch("/board", { method: "POST", body: JSON.stringify({ title: form.title.value.trim() }) });
+    const boardId = push(ref(database, "boards")).key;
+    const listId = push(ref(database, `lists/${boardId}`)).key;
+    const createdAt = Date.now();
+    await set(ref(database, `boards/${boardId}`), {
+      title,
+      ownerId: currentUser.uid,
+      ownerEmail: currentUser.email,
+      createdAt
+    });
+    await update(ref(database), {
+      [`userBoards/${currentUser.uid}/${boardId}`]: { role: "owner", createdAt },
+      [`lists/${boardId}/${listId}`]: { title: "Công việc", position: 0 }
+    });
     form.reset();
-    await loadBoards();
-  } catch (error) { setMessage("boards-message", error.message); }
+  } catch (error) {
+    setMessage("boards-message", firebaseError(error));
+  }
 }
 
 async function renameBoard(board = currentBoard) {
   const title = prompt("Tên mới của board:", board.title);
   if (!title?.trim()) return;
   try {
-    await apiFetch(`/board/${board.id}`, { method: "PUT", body: JSON.stringify({ title: title.trim() }) });
-    if (currentBoard?.id === board.id) await loadBoard(board.id);
-    else await loadBoards();
-  } catch (error) { setMessage(currentBoard ? "board-message" : "boards-message", error.message); }
+    await set(ref(database, `boards/${board.id}/title`), title.trim());
+  } catch (error) {
+    setMessage(currentBoard ? "board-message" : "boards-message", firebaseError(error));
+  }
 }
 
-async function deleteBoard(boardId) {
+async function deleteBoard(boardId, board = currentBoard) {
   if (!confirm("Xóa board này và toàn bộ cột/card bên trong?")) return;
   try {
-    await apiFetch(`/board/${boardId}`, { method: "DELETE" });
+    const changes = {
+      [`boards/${boardId}`]: null,
+      [`lists/${boardId}`]: null,
+      [`cards/${boardId}`]: null,
+      [`userBoards/${board.ownerId}/${boardId}`]: null
+    };
+    Object.keys(board.members || {}).forEach((uid) => { changes[`userBoards/${uid}/${boardId}`] = null; });
+    await update(ref(database), changes);
     if (currentBoard) location.href = "index.html";
-    else await loadBoards();
-  } catch (error) { setMessage(currentBoard ? "board-message" : "boards-message", error.message); }
+  } catch (error) {
+    setMessage(currentBoard ? "board-message" : "boards-message", firebaseError(error));
+  }
+}
+
+function clearBoardListeners() {
+  boardUnsubscribers.forEach((unsubscribe) => unsubscribe());
+  boardUnsubscribers = [];
+}
+
+function loadBoard(boardId) {
+  currentBoardId = boardId;
+  clearBoardListeners();
+  boardUnsubscribers.push(onValue(ref(database, `boards/${boardId}`), (snapshot) => {
+    if (!snapshot.exists()) {
+      setMessage("board-message", "Không tìm thấy board hoặc bạn không có quyền truy cập.");
+      return;
+    }
+    currentBoard = { id: boardId, ...snapshot.val() };
+    currentBoard.role = currentBoard.ownerId === currentUser.uid ? "owner" : "member";
+    document.getElementById("current-board-title").textContent = currentBoard.title;
+    document.title = `${currentBoard.title} · Trello Pro`;
+    ["share-toggle", "edit-board-button", "delete-board-button"].forEach((id) => {
+      document.getElementById(id).classList.toggle("hidden", currentBoard.role !== "owner");
+    });
+    renderMembers();
+  }, () => setMessage("board-message", "Bạn không có quyền truy cập board này.")));
+
+  boardUnsubscribers.push(onValue(ref(database, `lists/${boardId}`), (snapshot) => {
+    boardLists = collection(snapshot);
+    renderLists();
+  }));
+  boardUnsubscribers.push(onValue(ref(database, `cards/${boardId}`), (snapshot) => {
+    boardCards = collection(snapshot);
+    renderLists();
+  }));
 }
 
 function renderMembers() {
+  if (!currentBoard) return;
   const container = document.getElementById("members");
   container.replaceChildren();
-  currentBoard.members.forEach((member) => {
+  const members = [
+    { id: currentBoard.ownerId, email: currentBoard.ownerEmail, role: "owner" },
+    ...Object.entries(currentBoard.members || {}).map(([id, member]) => ({ id, ...member, role: "member" }))
+  ];
+  members.forEach((member) => {
     const row = document.createElement("div");
     row.className = "member-row";
     const label = document.createElement("span");
     label.textContent = `${member.email} · ${member.role === "owner" ? "Chủ board" : "Thành viên"}`;
     row.append(label);
-    if (currentBoard.role === "owner" && member.role !== "owner") {
+    if (currentBoard.role === "owner" && member.role === "member") {
       row.append(actionButton("Gỡ", "mini-button danger", () => removeMember(member.id)));
     }
     container.append(row);
@@ -191,21 +314,32 @@ function renderMembers() {
 async function shareBoard(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  const email = form.email.value.trim().toLowerCase();
   try {
-    await apiFetch(`/board/${currentBoard.id}/share`, {
-      method: "POST", body: JSON.stringify({ email: form.email.value.trim() })
+    const directory = await get(ref(database, `emailDirectory/${emailKey(email)}`));
+    if (!directory.exists()) throw new Error("Email này chưa đăng ký tài khoản.");
+    const member = directory.val();
+    if (member.uid === currentBoard.ownerId) throw new Error("Bạn đã là chủ board.");
+    await update(ref(database), {
+      [`boards/${currentBoard.id}/members/${member.uid}`]: { email: member.email },
+      [`userBoards/${member.uid}/${currentBoard.id}`]: { role: "member", createdAt: Date.now() }
     });
     form.reset();
-    await loadBoard(currentBoard.id);
-  } catch (error) { setMessage("board-message", error.message); }
+  } catch (error) {
+    setMessage("board-message", firebaseError(error));
+  }
 }
 
-async function removeMember(userId) {
+async function removeMember(uid) {
   if (!confirm("Gỡ thành viên này khỏi board?")) return;
   try {
-    await apiFetch(`/board/${currentBoard.id}/share/${userId}`, { method: "DELETE" });
-    await loadBoard(currentBoard.id);
-  } catch (error) { setMessage("board-message", error.message); }
+    await update(ref(database), {
+      [`boards/${currentBoard.id}/members/${uid}`]: null,
+      [`userBoards/${uid}/${currentBoard.id}`]: null
+    });
+  } catch (error) {
+    setMessage("board-message", firebaseError(error));
+  }
 }
 
 function renderCard(card) {
@@ -224,12 +358,13 @@ function renderCard(card) {
   return element;
 }
 
-function renderLists(lists, cards) {
+function renderLists() {
+  const board = document.getElementById("board");
+  if (!board) return;
   sortableInstances.forEach((instance) => instance.destroy());
   sortableInstances = [];
-  const board = document.getElementById("board");
   board.replaceChildren();
-  lists.forEach((list) => {
+  boardLists.forEach((list) => {
     const column = document.createElement("article");
     column.className = "list";
     column.dataset.id = list.id;
@@ -246,7 +381,7 @@ function renderLists(lists, cards) {
 
     const cardList = document.createElement("div");
     cardList.className = "cards";
-    cards.filter((card) => Number(card.listId) === Number(list.id)).forEach((card) => cardList.append(renderCard(card)));
+    boardCards.filter((card) => card.listId === list.id).forEach((card) => cardList.append(renderCard(card)));
 
     const form = document.createElement("form");
     form.className = "add-card-form";
@@ -266,108 +401,97 @@ function renderLists(lists, cards) {
   enableDrag();
 }
 
-async function loadBoard(boardId) {
-  try {
-    const [board, lists, cards] = await Promise.all([
-      apiFetch(`/board/${boardId}`), apiFetch(`/list/board/${boardId}`), apiFetch(`/card/${boardId}`)
-    ]);
-    currentBoard = board;
-    document.getElementById("current-board-title").textContent = board.title;
-    document.title = `${board.title} · Trello Pro`;
-    ["share-toggle", "edit-board-button", "delete-board-button"].forEach((id) => {
-      document.getElementById(id).classList.toggle("hidden", board.role !== "owner");
-    });
-    renderMembers();
-    renderLists(lists, cards);
-  } catch (error) { setMessage("board-message", error.message); }
-}
-
 async function createList(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  const listId = push(ref(database, `lists/${currentBoardId}`)).key;
   try {
-    await apiFetch(`/list/board/${currentBoard.id}`, { method: "POST", body: JSON.stringify({ title: form.title.value.trim() }) });
+    await set(ref(database, `lists/${currentBoardId}/${listId}`), {
+      title: form.title.value.trim(),
+      position: boardLists.length
+    });
     form.reset();
-    await changed();
-  } catch (error) { setMessage("board-message", error.message); }
+  } catch (error) { setMessage("board-message", firebaseError(error)); }
 }
 
 async function editList(list) {
   const title = prompt("Tên mới của cột:", list.title);
   if (!title?.trim()) return;
-  try {
-    await apiFetch(`/list/${list.id}`, { method: "PUT", body: JSON.stringify({ title: title.trim() }) });
-    await changed();
-  } catch (error) { setMessage("board-message", error.message); }
+  try { await set(ref(database, `lists/${currentBoardId}/${list.id}/title`), title.trim()); }
+  catch (error) { setMessage("board-message", firebaseError(error)); }
 }
 
 async function deleteList(listId) {
+  if (boardLists.length <= 1) return setMessage("board-message", "Board phải có ít nhất một cột.");
   if (!confirm("Xóa cột này và toàn bộ card bên trong?")) return;
-  try {
-    await apiFetch(`/list/${listId}`, { method: "DELETE" });
-    await changed();
-  } catch (error) { setMessage("board-message", error.message); }
+  const changes = { [`lists/${currentBoardId}/${listId}`]: null };
+  boardCards.filter((card) => card.listId === listId).forEach((card) => {
+    changes[`cards/${currentBoardId}/${card.id}`] = null;
+  });
+  try { await update(ref(database), changes); }
+  catch (error) { setMessage("board-message", firebaseError(error)); }
 }
 
 async function createCard(event, listId) {
   event.preventDefault();
   const form = event.currentTarget;
+  const cardId = push(ref(database, `cards/${currentBoardId}`)).key;
   try {
-    await apiFetch(`/card/${currentBoard.id}`, {
-      method: "POST", body: JSON.stringify({ listId, title: form.title.value.trim() })
+    await set(ref(database, `cards/${currentBoardId}/${cardId}`), {
+      listId,
+      title: form.title.value.trim(),
+      position: boardCards.filter((card) => card.listId === listId).length
     });
     form.reset();
-    await changed();
-  } catch (error) { setMessage("board-message", error.message); }
+  } catch (error) { setMessage("board-message", firebaseError(error)); }
 }
 
 async function editCard(card) {
   const title = prompt("Nội dung mới của card:", card.title);
   if (!title?.trim()) return;
-  try {
-    await apiFetch(`/card/${card.id}`, { method: "PUT", body: JSON.stringify({ title: title.trim() }) });
-    await changed();
-  } catch (error) { setMessage("board-message", error.message); }
+  try { await set(ref(database, `cards/${currentBoardId}/${card.id}/title`), title.trim()); }
+  catch (error) { setMessage("board-message", firebaseError(error)); }
 }
 
 async function deleteCard(cardId) {
   if (!confirm("Xóa card này?")) return;
-  try {
-    await apiFetch(`/card/${cardId}`, { method: "DELETE" });
-    await changed();
-  } catch (error) { setMessage("board-message", error.message); }
-}
-
-async function changed() {
-  socket?.emit("card-changed", { boardId: currentBoard.id });
-  await loadBoard(currentBoard.id);
+  try { await remove(ref(database, `cards/${currentBoardId}/${cardId}`)); }
+  catch (error) { setMessage("board-message", firebaseError(error)); }
 }
 
 function enableDrag() {
   if (!window.Sortable) return;
   const board = document.getElementById("board");
   sortableInstances.push(new Sortable(board, {
-    animation: 180, direction: "vertical", draggable: ".list", handle: ".list-header", onEnd: saveBoardOrder
+    animation: 180,
+    direction: "vertical",
+    draggable: ".list",
+    handle: ".list-header",
+    onEnd: saveBoardOrder
   }));
   board.querySelectorAll(".cards").forEach((container) => {
     sortableInstances.push(new Sortable(container, {
-      group: "cards", animation: 180, direction: "vertical", draggable: ".card", filter: "button", onEnd: saveBoardOrder
+      group: "cards",
+      animation: 180,
+      direction: "vertical",
+      draggable: ".card",
+      filter: "button",
+      onEnd: saveBoardOrder
     }));
   });
 }
 
 async function saveBoardOrder() {
-  const lists = [...document.querySelectorAll("#board > .list")].map((list) => ({
-    id: Number(list.dataset.id),
-    cardIds: [...list.querySelectorAll(".cards > .card")].map((card) => Number(card.dataset.id))
-  }));
-  try {
-    await apiFetch("/card/move", { method: "POST", body: JSON.stringify({ boardId: currentBoard.id, lists }) });
-    socket?.emit("card-changed", { boardId: currentBoard.id });
-  } catch (error) {
-    setMessage("board-message", error.message);
-    await loadBoard(currentBoard.id);
-  }
+  const changes = {};
+  [...document.querySelectorAll("#board > .list")].forEach((list, listPosition) => {
+    changes[`lists/${currentBoardId}/${list.dataset.id}/position`] = listPosition;
+    [...list.querySelectorAll(".cards > .card")].forEach((card, cardPosition) => {
+      changes[`cards/${currentBoardId}/${card.dataset.id}/listId`] = list.dataset.id;
+      changes[`cards/${currentBoardId}/${card.dataset.id}/position`] = cardPosition;
+    });
+  });
+  try { await update(ref(database), changes); }
+  catch (error) { setMessage("board-message", firebaseError(error)); }
 }
 
 function initIndex() {
@@ -378,27 +502,42 @@ function initIndex() {
   document.getElementById("show-login").addEventListener("click", showLoginForm);
   document.getElementById("board-form").addEventListener("submit", createBoard);
   document.getElementById("logout-button").addEventListener("click", logout);
-  if (token) { showBoardsView(); loadBoards(); }
 }
 
 function initBoard() {
   if (!document.getElementById("board")) return;
-  if (!token) return logout();
-  const boardId = new URLSearchParams(location.search).get("id");
-  if (!boardId || !/^\d+$/.test(boardId)) return setMessage("board-message", "Board không hợp lệ.");
   document.getElementById("logout-button").addEventListener("click", logout);
   document.getElementById("list-form").addEventListener("submit", createList);
   document.getElementById("share-form").addEventListener("submit", shareBoard);
   document.getElementById("share-toggle").addEventListener("click", () => document.getElementById("share-panel").classList.toggle("hidden"));
   document.getElementById("edit-board-button").addEventListener("click", () => renameBoard());
   document.getElementById("delete-board-button").addEventListener("click", () => deleteBoard(currentBoard.id));
-  loadBoard(Number(boardId));
-  if (window.io) {
-    socket = io();
-    socket.emit("join-board", boardId);
-    socket.on("card-updated", () => loadBoard(Number(boardId)));
-  }
 }
 
 initIndex();
 initBoard();
+
+onAuthStateChanged(auth, (user) => {
+  currentUser = user;
+  if (document.getElementById("auth-view")) {
+    if (user) {
+      showBoardsView();
+      loadBoards();
+    } else {
+      unsubscribeBoards?.();
+      showAuthView();
+    }
+    return;
+  }
+
+  if (!user) {
+    location.href = "index.html";
+    return;
+  }
+  const boardId = new URLSearchParams(location.search).get("id");
+  if (!boardId || !/^[A-Za-z0-9_-]+$/.test(boardId)) {
+    setMessage("board-message", "Board không hợp lệ.");
+    return;
+  }
+  loadBoard(boardId);
+});
