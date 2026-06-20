@@ -8,55 +8,86 @@
 </head>
 <body>
   <main class="container">
-    <section id="auth-view" class="panel auth-panel">
-      <h1>Trello Pro</h1>
-      <p class="muted">Đăng nhập để quản lý các bảng công việc của bạn.</p>
+    <section id="auth-view" class="auth-layout">
+      <aside class="auth-showcase">
+        <div class="brand brand-light">
+          <span class="brand-mark">T</span>
+          <span>Trello Pro</span>
+        </div>
+        <div class="showcase-copy">
+          <span class="eyebrow">Không gian làm việc của bạn</span>
+          <h1>Sắp xếp công việc.<br>Hoàn thành nhẹ nhàng.</h1>
+          <p>Biến những ý tưởng đang rối thành một quy trình rõ ràng, trực quan và dễ cộng tác.</p>
+        </div>
+        <div class="showcase-preview" aria-hidden="true">
+          <div class="preview-top"><i></i><i></i><i></i><span>Dự án mới</span></div>
+          <div class="preview-columns">
+            <div><b>Cần làm</b><span></span><span></span></div>
+            <div><b>Đang làm</b><span></span></div>
+            <div><b>Hoàn thành</b><span></span><span></span></div>
+          </div>
+        </div>
+      </aside>
 
-      <form id="login-form">
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" autocomplete="email" required>
+      <div class="panel auth-panel">
+        <div class="mobile-brand brand">
+          <span class="brand-mark">T</span>
+          <span>Trello Pro</span>
+        </div>
+        <span class="eyebrow dark">Chào mừng trở lại</span>
+        <h2>Đăng nhập tài khoản</h2>
+        <p class="muted">Tiếp tục quản lý những việc quan trọng của bạn.</p>
 
-        <label for="password">Mật khẩu</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <form id="login-form">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required>
 
-        <button type="submit">Đăng nhập</button>
-      </form>
-      <p class="auth-switch">
-        Chưa có tài khoản?
-        <button id="show-register" class="text-button" type="button">Đăng ký ngay</button>
-      </p>
+          <label for="password">Mật khẩu</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
 
-      <form id="register-form" class="hidden">
-        <label for="register-email">Email</label>
-        <input id="register-email" name="email" type="email" autocomplete="email" required>
-
-        <label for="register-password">Mật khẩu</label>
-        <input id="register-password" name="password" type="password" minlength="6" autocomplete="new-password" required>
-
-        <label for="confirm-password">Nhập lại mật khẩu</label>
-        <input id="confirm-password" name="confirmPassword" type="password" minlength="6" autocomplete="new-password" required>
-
-        <button type="submit">Tạo tài khoản</button>
+          <button type="submit">Đăng nhập</button>
+        </form>
         <p class="auth-switch">
-          Đã có tài khoản?
-          <button id="show-login" class="text-button" type="button">Quay lại đăng nhập</button>
+          Chưa có tài khoản?
+          <button id="show-register" class="text-button" type="button">Đăng ký ngay</button>
         </p>
-      </form>
-      <p id="auth-message" class="message" role="status"></p>
+
+        <form id="register-form" class="hidden">
+          <label for="register-email">Email</label>
+          <input id="register-email" name="email" type="email" autocomplete="email" required>
+
+          <label for="register-password">Mật khẩu</label>
+          <input id="register-password" name="password" type="password" minlength="6" autocomplete="new-password" required>
+
+          <label for="confirm-password">Nhập lại mật khẩu</label>
+          <input id="confirm-password" name="confirmPassword" type="password" minlength="6" autocomplete="new-password" required>
+
+          <button type="submit">Tạo tài khoản</button>
+          <p class="auth-switch">
+            Đã có tài khoản?
+            <button id="show-login" class="text-button" type="button">Quay lại đăng nhập</button>
+          </p>
+        </form>
+        <p id="auth-message" class="message" role="status"></p>
+      </div>
     </section>
 
     <section id="boards-view" class="hidden">
-      <header class="page-header">
-        <div>
-          <h1>Bảng của tôi</h1>
-          <p class="muted">Chọn một bảng để bắt đầu làm việc.</p>
+      <header class="page-header dashboard-header">
+        <div class="dashboard-heading">
+          <div class="brand">
+            <span class="brand-mark">T</span>
+            <span>Trello Pro</span>
+          </div>
+          <h1>Không gian của tôi</h1>
+          <p class="muted">Mọi kế hoạch, gọn gàng trong một nơi.</p>
         </div>
         <button id="logout-button" class="secondary" type="button">Đăng xuất</button>
       </header>
 
-      <form id="board-form" class="inline-form panel">
+      <form id="board-form" class="inline-form panel create-board-panel">
         <input id="board-title" name="title" maxlength="255" placeholder="Tên bảng mới" required>
-        <button type="submit">Tạo bảng</button>
+        <button type="submit"><span>＋</span> Tạo bảng</button>
       </form>
       <p id="boards-message" class="message" role="status"></p>
       <div id="boards" class="board-grid"></div>

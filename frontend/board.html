@@ -8,21 +8,32 @@
 </head>
 <body>
   <main class="container board-page">
-    <header class="page-header">
-      <div>
-        <a href="index.html" class="back-link">← Các bảng</a>
+    <div class="board-brand-row">
+      <a class="brand" href="index.html">
+        <span class="brand-mark">T</span>
+        <span>Trello Pro</span>
+      </a>
+      <button id="logout-button" class="secondary" type="button">Đăng xuất</button>
+    </div>
+
+    <header class="page-header board-header">
+      <div class="board-heading">
+        <a href="index.html" class="back-link">← Không gian của tôi</a>
         <h1 id="current-board-title">Board</h1>
+        <p class="board-subtitle">Kéo thả để sắp xếp công việc theo cách của bạn.</p>
       </div>
       <div class="header-actions">
         <button id="share-toggle" class="secondary hidden" type="button">Chia sẻ</button>
         <button id="edit-board-button" class="secondary hidden" type="button">Đổi tên</button>
         <button id="delete-board-button" class="danger hidden" type="button">Xóa board</button>
-        <button id="logout-button" class="secondary" type="button">Đăng xuất</button>
       </div>
     </header>
 
     <section id="share-panel" class="panel share-panel hidden">
-      <h2>Thành viên</h2>
+      <div class="section-heading">
+        <span class="section-icon">◎</span>
+        <div><h2>Thành viên</h2><p>Mời mọi người cùng làm việc trên board.</p></div>
+      </div>
       <form id="share-form" class="inline-form">
         <input name="email" type="email" placeholder="Email tài khoản muốn mời" required>
         <button type="submit">Mời</button>
@@ -32,7 +43,7 @@
 
     <form id="list-form" class="inline-form panel compact-panel">
       <input name="title" maxlength="255" placeholder="Tên cột mới, ví dụ: Đang làm" required>
-      <button type="submit">Thêm cột</button>
+      <button type="submit"><span>＋</span> Thêm cột</button>
     </form>
 
     <p id="board-message" class="message" role="status"></p>
